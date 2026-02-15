@@ -1,19 +1,44 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { db } from '../lib/firebase'; // Тот файл, который ты создал
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('mining');
   const [balance, setBalance] = useState(0);
+  const [userId, setUserId] = useState('test_user'); // Для теста, потом заменим на TG ID
 
   // Цвета "Сбер-премиум"
   const cardBg = '#1c1c1e'; 
   const sberGreen = '#21a038';
 
-  // Логика клика
-  const handleTap = () => {
-    setBalance(prev => prev + 1);
-    // Сюда добавим авто-сохранение в Firebase раз в 10 кликов
+  // 1. ЗАГРУЗКА ДАННЫХ ПРИ ВХОДЕ
+  useEffect(() => {
+    const loadData = async () => {
+      const docRef = doc(db, "users", userId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        setBalance(docSnap.data().balance);
+      } else {
+        // Если юзера нет в базе — создаем его
+        await setDoc(docRef, { balance: 0, lastLogin: new Date() });
+      }
+    };
+    loadData();
+  }, [userId]);
+
+  // 2. ЛОГИКА КЛИКА И СОХРАНЕНИЯ
+  const handleTap = async () => {
+    const newBalance = balance + 1;
+    setBalance(newBalance);
+
+    // Сохраняем в базу каждое 10-е нажатие
+    if (newBalance % 10 === 0) {
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, { balance: newBalance });
+    }
   };
 
   return (
@@ -39,8 +64,11 @@ export default function Home() {
                 width: '240px', height: '240px', borderRadius: '50%',
                 background: 'radial-gradient(circle, #ffd700 0%, #b8860b 100%)',
                 fontSize: '80px', border: '8px solid #444',
-                cursor: 'pointer', boxShadow: '0 0 40px rgba(255,215,0,0.2)'
+                cursor: 'pointer', boxShadow: '0_0_40px_rgba(255,215,0,0.2)',
+                outline: 'none', transition: 'transform 0.1s'
               }}
+              onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.95)')}
+              onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
             >
               ⚡️
             </button>
@@ -65,13 +93,13 @@ export default function Home() {
         height: '70px', backgroundColor: 'rgba(255,255,255,0.1)',
         backdropFilter: 'blur(15px)', borderRadius: '20px',
         display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-        border: '1px solid rgba(255,255,255,0.1)'
+        border: '1px solid rgba(255,255,255,0.1)', zIndex: 1000
       }}>
         {[
           {id: 'mining', icon: '⚡️', n: 'Майнинг'},
           {id: 'tasks', icon: '📋', n: 'Задания'},
           {id: 'friends', icon: '👥', n: 'Друзья'},
-          {id: 'shop', icon: '🛒', n: 'Маркет'},
+      {id: 'shop', icon: '🛒', n: 'Маркет'},
           {id: 'wallet', icon: '💎', n: 'Кошелек'}
         ].map(item => (
           <div 
